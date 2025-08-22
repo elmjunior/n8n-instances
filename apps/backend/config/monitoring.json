@@ -1,0 +1,12 @@
+{
+  "healthCheck": {
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3,
+    "autoRestart": true,
+    "alertThreshold": 3
+  },
+  "logBufferSize": 1000,
+  "metricsInterval": 60,
+  "retentionDays": 30
+}

@@ -1,0 +1,171 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n-n8n-1755876055892-72ywscjwe
+    restart: unless-stopped
+
+    # Port mapping
+    ports:
+      - "5600:5678"
+
+    # Environment variables
+    environment:
+      # Basic authentication
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+
+      # Server configuration
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_USER_MANAGEMENT_DISABLED=false
+
+      # Security and performance
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_METRICS=true
+      - N8N_LOG_LEVEL=info
+      - N8N_LOG_OUTPUT=console
+      - N8N_ENCRYPTION_KEY=120233b1c0f049787474caf580d60b4538c14572a1caaf506dd216702a140dc1
+
+      # Webhook configuration
+      - WEBHOOK_URL=http://localhost:5600
+      - GENERIC_TIMEZONE=UTC
+
+      # Database (using SQLite for simplicity)
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/home/node/.n8n/database.sqlite
+
+      # Execution settings
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_MODE=regular
+      - EXECUTIONS_TIMEOUT=3600
+      - EXECUTIONS_TIMEOUT_MAX=7200
+
+      # Queue settings
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=0
+
+    # Volumes for persistent data
+    volumes:
+      - n8n_data_n8n-1755876055892-72ywscjwe:/home/node/.n8n
+      - n8n_workflows_n8n-1755876055892-72ywscjwe:/home/node/.n8n/workflows
+      - n8n_credentials_n8n-1755876055892-72ywscjwe:/home/node/.n8n/credentials
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Labels for Traefik routing
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n-n8n-1755876055892-72ywscjwe.rule=Host(`test.digital.n8n.local`)"
+      - "traefik.http.routers.n8n-n8n-1755876055892-72ywscjwe.entrypoints=web"
+      - "traefik.http.services.n8n-n8n-1755876055892-72ywscjwe.loadbalancer.server.port=5678"
+      - "traefik.http.middlewares.n8n-n8n-1755876055892-72ywscjwe-auth.basicauth.users=admin:YWRtaW46YWRtaW4xMjM="
+      - "traefik.http.routers.n8n-n8n-1755876055892-72ywscjwe.middlewares=n8n-n8n-1755876055892-72ywscjwe-auth"
+
+      # Custom labels for management
+      - "n8n.instance.id=n8n-1755876055892-72ywscjwe"
+      - "n8n.client.name=test.digital"
+      - "n8n.port=5600"
+      - "n8n.subdomain=test.digital"
+      - "n8n.created=2025-08-22T15:20:55.969Z"
+
+    # Network configuration
+    networks:
+      - n8n_network_n8n-1755876055892-72ywscjwe
+      - traefik_network
+
+    # Dependencies
+    depends_on:
+      - redis
+
+  # Redis for queue management
+  redis:
+    image: redis:7-alpine
+    container_name: n8n-redis-n8n-1755876055892-72ywscjwe
+    restart: unless-stopped
+
+    # Redis configuration
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+    # Volumes for Redis persistence
+    volumes:
+      - n8n_redis_n8n-1755876055892-72ywscjwe:/data
+
+    # Resource limits for Redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+    # Health check for Redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Labels
+    labels:
+      - "n8n.instance.id=n8n-1755876055892-72ywscjwe"
+      - "n8n.component=redis"
+
+    # Network
+    networks:
+      - n8n_network_n8n-1755876055892-72ywscjwe
+
+# Volumes for persistent data
+volumes:
+  n8n_data_n8n-1755876055892-72ywscjwe:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  n8n_workflows_n8n-1755876055892-72ywscjwe:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./workflows
+  n8n_credentials_n8n-1755876055892-72ywscjwe:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./credentials
+  n8n_redis_n8n-1755876055892-72ywscjwe:
+    driver: local
+
+# Networks
+networks:
+  n8n_network_n8n-1755876055892-72ywscjwe:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.231.0/24
+  traefik_network:
+    external: true

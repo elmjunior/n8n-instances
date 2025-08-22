@@ -1,0 +1,166 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n-{{INSTANCE_ID}}
+    restart: unless-stopped
+
+    # Port mapping
+    ports:
+      - "{{PORT}}:5678"
+
+    # Environment variables
+    environment:
+      # Basic authentication
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER={{USERNAME}}
+      - N8N_BASIC_AUTH_PASSWORD={{PASSWORD}}
+
+      # Server configuration
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_USER_MANAGEMENT_DISABLED=false
+
+      # Security and performance
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_METRICS=true
+      - N8N_LOG_LEVEL=info
+      - N8N_LOG_OUTPUT=console
+      - N8N_ENCRYPTION_KEY={{ENCRYPTION_KEY}}
+
+      # Webhook configuration
+      - WEBHOOK_URL=http://localhost:{{PORT}}
+      - GENERIC_TIMEZONE=UTC
+
+      # Database (using SQLite for simplicity)
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/home/node/.n8n/database.sqlite
+
+      # Execution settings
+      - EXECUTIONS_PROCESS=main
+      - EXECUTIONS_MODE=regular
+      - EXECUTIONS_TIMEOUT=3600
+      - EXECUTIONS_TIMEOUT_MAX=7200
+
+      # Queue settings
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=0
+
+    # Volumes for persistent data
+    volumes:
+      - n8n_data_{{INSTANCE_ID}}:/home/node/.n8n
+      - n8n_workflows_{{INSTANCE_ID}}:/home/node/.n8n/workflows
+      - n8n_credentials_{{INSTANCE_ID}}:/home/node/.n8n/credentials
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Labels for Traefik routing
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n-{{INSTANCE_ID}}.rule=Host(`{{CLIENT_NAME}}.n8n.local`)"
+      - "traefik.http.routers.n8n-{{INSTANCE_ID}}.entrypoints=web"
+      - "traefik.http.services.n8n-{{INSTANCE_ID}}.loadbalancer.server.port=5678"
+      - "traefik.http.middlewares.n8n-{{INSTANCE_ID}}-auth.basicauth.users={{USERNAME}}:{{PASSWORD_HASH}}"
+      - "traefik.http.routers.n8n-{{INSTANCE_ID}}.middlewares=n8n-{{INSTANCE_ID}}-auth"
+
+      # Custom labels for management
+      - "n8n.instance.id={{INSTANCE_ID}}"
+      - "n8n.client.name={{CLIENT_NAME}}"
+      - "n8n.port={{PORT}}"
+      - "n8n.subdomain={{CLIENT_NAME}}"
+      - "n8n.created={{CREATED_AT}}"
+
+    # Network configuration
+    networks:
+      - n8n_network_{{INSTANCE_ID}}
+
+    # Dependencies
+    depends_on:
+      - redis
+
+  # Redis for queue management
+  redis:
+    image: redis:7-alpine
+    container_name: n8n-redis-{{INSTANCE_ID}}
+    restart: unless-stopped
+
+    # Redis configuration
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+    # Volumes for Redis persistence
+    volumes:
+      - n8n_redis_{{INSTANCE_ID}}:/data
+
+    # Resource limits for Redis
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+    # Health check for Redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    # Labels
+    labels:
+      - "n8n.instance.id={{INSTANCE_ID}}"
+      - "n8n.component=redis"
+
+    # Network
+    networks:
+      - n8n_network_{{INSTANCE_ID}}
+
+# Volumes for persistent data
+volumes:
+  n8n_data_{{INSTANCE_ID}}:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data
+  n8n_workflows_{{INSTANCE_ID}}:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./workflows
+  n8n_credentials_{{INSTANCE_ID}}:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./credentials
+  n8n_redis_{{INSTANCE_ID}}:
+    driver: local
+
+# Networks
+networks:
+  n8n_network_{{INSTANCE_ID}}:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.{{SUBNET_ID}}.0.0/16
