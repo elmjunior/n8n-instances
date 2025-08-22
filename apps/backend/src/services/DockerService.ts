@@ -102,7 +102,11 @@ export class DockerService {
         createdAt: inspect.Created,
         metrics,
       };
-    } catch (error) {
+    } catch (error: any) {
+      // Don't log 404 errors (container not found) as they're expected
+      if (error.statusCode === 404) {
+        return null;
+      }
       console.error(`Error getting container info for ${containerId}:`, error);
       return null;
     }

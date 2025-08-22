@@ -1,14 +1,12 @@
-
-
 services:
   n8n:
     image: n8nio/n8n:latest
-    container_name: n8n-n8n-1755876406368-a8giylsaz
+    container_name: n8n-n8n-1755903269929-p1ic5w2m0
     restart: unless-stopped
 
     # Port mapping
     ports:
-      - "5600:5678"
+      - "5601:5678"
 
     # Environment variables
     environment:
@@ -28,10 +26,10 @@ services:
       - N8N_METRICS=true
       - N8N_LOG_LEVEL=info
       - N8N_LOG_OUTPUT=console
-      - N8N_ENCRYPTION_KEY=a354e4e5c5bc90a549c3ff6d3869091e096bea0544b4d696714385e2025fb571
+      - N8N_ENCRYPTION_KEY=5c21bbdce154d21890b93d60dacfc84ac775bf496aaf91ca4684e79bfb33ef3c
 
       # Webhook configuration
-      - WEBHOOK_URL=http://localhost:5600
+      - WEBHOOK_URL=http://localhost:5601
       - GENERIC_TIMEZONE=UTC
 
       # Database (using SQLite for simplicity)
@@ -51,9 +49,9 @@ services:
 
     # Volumes for persistent data
     volumes:
-      - n8n_data_n8n-1755876406368-a8giylsaz:/home/node/.n8n
-      - n8n_workflows_n8n-1755876406368-a8giylsaz:/home/node/.n8n/workflows
-      - n8n_credentials_n8n-1755876406368-a8giylsaz:/home/node/.n8n/credentials
+      - n8n_data_n8n-1755903269929-p1ic5w2m0:/home/node/.n8n
+      - n8n_workflows_n8n-1755903269929-p1ic5w2m0:/home/node/.n8n/workflows
+      - n8n_credentials_n8n-1755903269929-p1ic5w2m0:/home/node/.n8n/credentials
 
     # Resource limits
     deploy:
@@ -76,22 +74,22 @@ services:
     # Labels for Traefik routing
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.n8n-n8n-1755876406368-a8giylsaz.rule=Host(`primata.digital.n8n.local`)"
-      - "traefik.http.routers.n8n-n8n-1755876406368-a8giylsaz.entrypoints=web"
-      - "traefik.http.services.n8n-n8n-1755876406368-a8giylsaz.loadbalancer.server.port=5678"
-      - "traefik.http.middlewares.n8n-n8n-1755876406368-a8giylsaz-auth.basicauth.users=admin:YWRtaW46YWRtaW4xMjM="
-      - "traefik.http.routers.n8n-n8n-1755876406368-a8giylsaz.middlewares=n8n-n8n-1755876406368-a8giylsaz-auth"
+      - "traefik.http.routers.n8n-n8n-1755903269929-p1ic5w2m0.rule=Host(`ContrutoraPro.n8n.local`)"
+      - "traefik.http.routers.n8n-n8n-1755903269929-p1ic5w2m0.entrypoints=web"
+      - "traefik.http.services.n8n-n8n-1755903269929-p1ic5w2m0.loadbalancer.server.port=5678"
+      - "traefik.http.middlewares.n8n-n8n-1755903269929-p1ic5w2m0-auth.basicauth.users=admin:YWRtaW46YWRtaW4xMjM="
+      - "traefik.http.routers.n8n-n8n-1755903269929-p1ic5w2m0.middlewares=n8n-n8n-1755903269929-p1ic5w2m0-auth"
 
       # Custom labels for management
-      - "n8n.instance.id=n8n-1755876406368-a8giylsaz"
-      - "n8n.client.name=primata.digital"
-      - "n8n.port=5600"
-      - "n8n.subdomain=primata.digital"
-      - "n8n.created=2025-08-22T15:26:46.427Z"
+      - "n8n.instance.id=n8n-1755903269929-p1ic5w2m0"
+      - "n8n.client.name=ContrutoraPro"
+      - "n8n.port=5601"
+      - "n8n.subdomain=ContrutoraPro"
+      - "n8n.created=2025-08-22T22:54:29.953Z"
 
     # Network configuration
     networks:
-      - n8n_network_n8n-1755876406368-a8giylsaz
+      - n8n_network_n8n-1755903269929-p1ic5w2m0
 
     # Dependencies
     depends_on:
@@ -100,7 +98,7 @@ services:
   # Redis for queue management
   redis:
     image: redis:7-alpine
-    container_name: n8n-redis-n8n-1755876406368-a8giylsaz
+    container_name: n8n-redis-n8n-1755903269929-p1ic5w2m0
     restart: unless-stopped
 
     # Redis configuration
@@ -108,7 +106,7 @@ services:
 
     # Volumes for Redis persistence
     volumes:
-      - n8n_redis_n8n-1755876406368-a8giylsaz:/data
+      - n8n_redis_n8n-1755903269929-p1ic5w2m0:/data
 
     # Resource limits for Redis
     deploy:
@@ -129,40 +127,40 @@ services:
 
     # Labels
     labels:
-      - "n8n.instance.id=n8n-1755876406368-a8giylsaz"
+      - "n8n.instance.id=n8n-1755903269929-p1ic5w2m0"
       - "n8n.component=redis"
 
     # Network
     networks:
-      - n8n_network_n8n-1755876406368-a8giylsaz
+      - n8n_network_n8n-1755903269929-p1ic5w2m0
 
 # Volumes for persistent data
 volumes:
-  n8n_data_n8n-1755876406368-a8giylsaz:
+  n8n_data_n8n-1755903269929-p1ic5w2m0:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: ./data
-  n8n_workflows_n8n-1755876406368-a8giylsaz:
+  n8n_workflows_n8n-1755903269929-p1ic5w2m0:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: ./workflows
-  n8n_credentials_n8n-1755876406368-a8giylsaz:
+  n8n_credentials_n8n-1755903269929-p1ic5w2m0:
     driver: local
     driver_opts:
       type: none
       o: bind
       device: ./credentials
-  n8n_redis_n8n-1755876406368-a8giylsaz:
+  n8n_redis_n8n-1755903269929-p1ic5w2m0:
     driver: local
 
 # Networks
 networks:
-  n8n_network_n8n-1755876406368-a8giylsaz:
+  n8n_network_n8n-1755903269929-p1ic5w2m0:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.69.0.0/16
+        - subnet: 172.211.0.0/16

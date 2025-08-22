@@ -106,6 +106,9 @@ export const typeDefs = gql`
     deleteInstance(id: ID!): Boolean!
     updateMonitoringConfig(config: MonitoringConfigInput!): MonitoringConfig!
     triggerHealthCheck(id: ID!): InstanceHealth!
+    cleanupOrphanedInstances: [String!]!
+    checkDockerHealth: Boolean!
+    validateDockerCompose(id: ID!): DockerComposeValidation!
   }
 
   type Subscription {
@@ -152,6 +155,11 @@ export const typeDefs = gql`
     logBufferSize: Int
     metricsInterval: Int
     retentionDays: Int
+  }
+
+  type DockerComposeValidation {
+    valid: Boolean!
+    errors: [String!]!
   }
 
   input CreateInstanceInput {

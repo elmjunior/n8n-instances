@@ -84,6 +84,18 @@ export const resolvers = {
     triggerHealthCheck: async (_: any, { id }: { id: string }) => {
       return await n8nService.triggerHealthCheck(id);
     },
+
+    cleanupOrphanedInstances: async () => {
+      return await n8nService.cleanupOrphanedInstances();
+    },
+
+    checkDockerHealth: async () => {
+      return await n8nService.checkDockerHealth();
+    },
+
+    validateDockerCompose: async (_: any, { id }: { id: string }) => {
+      return await n8nService.validateDockerCompose(id);
+    },
   },
 
   Subscription: {

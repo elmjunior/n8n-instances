@@ -118,6 +118,20 @@ export class N8NInstanceService {
       throw new Error(`Instance ${id} not found`);
     }
 
+    // Check Docker health first
+    const dockerHealthy = await this.checkDockerHealth();
+    if (!dockerHealthy) {
+      throw new Error("Docker is not available or not responding");
+    }
+
+    // Validate docker-compose file
+    const validation = await this.validateDockerCompose(id);
+    if (!validation.valid) {
+      throw new Error(
+        `Docker compose validation failed: ${validation.errors.join(", ")}`
+      );
+    }
+
     const instanceDir = this.templateService.getInstanceDir(id);
 
     try {
@@ -125,8 +139,23 @@ export class N8NInstanceService {
       instance.status = InstanceStatus.STARTING;
       await this.saveInstanceMetadata(instance);
 
-      // Start containers using docker-compose
-      await execAsync("docker-compose up -d", { cwd: instanceDir });
+      // Start containers using docker-compose with timeout
+      const timeout = 30000; // 30 seconds timeout
+
+      try {
+        await Promise.race([
+          execAsync("docker-compose up -d", { cwd: instanceDir }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Docker compose timeout")),
+              timeout
+            )
+          ),
+        ]);
+      } catch (dockerError) {
+        console.error(`Docker compose error for instance ${id}:`, dockerError);
+        throw new Error(`Failed to start containers: ${dockerError.message}`);
+      }
 
       // Wait a bit and check status
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -158,7 +187,26 @@ export class N8NInstanceService {
       // Stop monitoring first
       await this.stopMonitoring(id);
 
-      await execAsync("docker-compose down", { cwd: instanceDir });
+      // Stop containers using docker-compose with timeout
+      const timeout = 15000; // 15 seconds timeout
+
+      try {
+        await Promise.race([
+          execAsync("docker-compose down", { cwd: instanceDir }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Docker compose down timeout")),
+              timeout
+            )
+          ),
+        ]);
+      } catch (dockerError) {
+        console.error(
+          `Docker compose down error for instance ${id}:`,
+          dockerError
+        );
+        // Don't throw error for stop, just log it
+      }
 
       instance.status = InstanceStatus.STOPPED;
       await this.saveInstanceMetadata(instance);
@@ -434,5 +482,103 @@ networks:
         message: line,
       };
     });
+  }
+
+  /**
+   * Check if Docker is available and responsive
+   */
+  async checkDockerHealth(): Promise<boolean> {
+    try {
+      const timeout = 5000; // 5 seconds timeout
+      await Promise.race([
+        execAsync("docker version"),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Docker timeout")), timeout)
+        ),
+      ]);
+      return true;
+    } catch (error) {
+      console.error("Docker health check failed:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Validate docker-compose file for an instance
+   */
+  async validateDockerCompose(
+    id: string
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
+    const instanceDir = this.templateService.getInstanceDir(id);
+    const composePath = path.join(instanceDir, "docker-compose.yml");
+
+    try {
+      // Check if file exists
+      if (!(await fs.pathExists(composePath))) {
+        errors.push("docker-compose.yml file not found");
+        return { valid: false, errors };
+      }
+
+      // Validate docker-compose syntax
+      try {
+        const timeout = 10000; // 10 seconds timeout
+        await Promise.race([
+          execAsync("docker-compose config", { cwd: instanceDir }),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("Docker compose config timeout")),
+              timeout
+            )
+          ),
+        ]);
+      } catch (error) {
+        errors.push(`Docker compose validation failed: ${error.message}`);
+      }
+
+      return { valid: errors.length === 0, errors };
+    } catch (error) {
+      errors.push(`Validation error: ${error.message}`);
+      return { valid: false, errors };
+    }
+  }
+
+  /**
+   * Clean up orphaned instances (instances without containers)
+   */
+  async cleanupOrphanedInstances(): Promise<string[]> {
+    const cleanedInstances: string[] = [];
+    const instanceDirs = await fs.readdir(this.instancesDir);
+
+    for (const instanceId of instanceDirs) {
+      const instancePath = path.join(this.instancesDir, instanceId);
+      const stats = await fs.stat(instancePath);
+
+      if (stats.isDirectory()) {
+        try {
+          const instance = await this.loadInstanceMetadata(instanceId);
+          if (instance) {
+            // Check if container exists
+            const container = await this.dockerService.getContainerInfo(
+              `n8n-${instanceId}`
+            );
+
+            // If no container exists and instance is not in CREATED status, mark as orphaned
+            if (!container && instance.status !== InstanceStatus.CREATED) {
+              console.log(`Found orphaned instance: ${instanceId}`);
+              cleanedInstances.push(instanceId);
+
+              // Update status to STOPPED
+              instance.status = InstanceStatus.STOPPED;
+              await this.saveInstanceMetadata(instance);
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking instance ${instanceId}:`, error);
+        }
+      }
+    }
+
+    return cleanedInstances;
   }
 }

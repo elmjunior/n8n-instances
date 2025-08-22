@@ -1,4 +1,6 @@
 import Docker from "dockerode";
+import fs from "fs-extra";
+import path from "path";
 
 export class PortManager {
   private docker: Docker;
@@ -61,15 +63,12 @@ export class PortManager {
   }
 
   /**
-   * Add ports from existing instance metadata
+   * Add ports from existing instance metadata and docker-compose files
    */
   private async addInstanceMetadataPorts(
     usedPorts: Set<number>
   ): Promise<void> {
     try {
-      const fs = await import("fs-extra");
-      const path = await import("path");
-
       const instancesDir = path.join(
         process.cwd(),
         "..",
@@ -85,6 +84,7 @@ export class PortManager {
       const instanceDirs = await fs.readdir(instancesDir);
 
       for (const instanceId of instanceDirs) {
+        // Check metadata.json first
         const metadataPath = path.join(
           instancesDir,
           instanceId,
@@ -99,6 +99,28 @@ export class PortManager {
             }
           } catch (error) {
             console.warn(`Error reading metadata for ${instanceId}:`, error);
+          }
+        }
+
+        // Also check docker-compose.yml for port information
+        const composePath = path.join(
+          instancesDir,
+          instanceId,
+          "docker-compose.yml"
+        );
+
+        if (await fs.pathExists(composePath)) {
+          try {
+            const composeContent = await fs.readFile(composePath, "utf-8");
+            const portMatch = composeContent.match(/ports:\s*-\s*"(\d+):5678"/);
+            if (portMatch && this.isInRange(parseInt(portMatch[1]))) {
+              usedPorts.add(parseInt(portMatch[1]));
+            }
+          } catch (error) {
+            console.warn(
+              `Error reading docker-compose for ${instanceId}:`,
+              error
+            );
           }
         }
       }
