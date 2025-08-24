@@ -6,7 +6,9 @@ import {
   ApolloProvider,
   createHttpLink,
   split,
+  from,
 } from "@apollo/client";
+import { setContext } from "@apollo/client/link/context";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { createClient } from "graphql-ws";
@@ -16,6 +18,17 @@ import "./index.css";
 // HTTP link for queries and mutations
 const httpLink = createHttpLink({
   uri: "http://localhost:4019/graphql",
+});
+
+// Auth link to add token to requests
+const authLink = setContext((_, { headers }) => {
+  const token = localStorage.getItem("authToken");
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : "",
+    },
+  };
 });
 
 // WebSocket link for subscriptions
@@ -35,7 +48,7 @@ const splitLink = split(
     );
   },
   wsLink,
-  httpLink
+  from([authLink, httpLink])
 );
 
 const client = new ApolloClient({

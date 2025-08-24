@@ -48,8 +48,8 @@ export class TemplateService {
     instanceId: string,
     port: number,
     clientName: string,
-    username: string = "admin",
-    password: string = "admin123"
+    username: string = "junior@primata.digital",
+    password: string = "Passw*rd123"
   ): Promise<string> {
     const templatePath = path.join(
       this.templatesDir,
@@ -243,7 +243,7 @@ HEALTH_CHECK_RETRIES=3
 ## Access Information
 - **Local Access**: http://localhost:${port}
 - **Traefik Route**: http://${clientName}.n8n.local
-- **Default Credentials**: ${username || "admin"} / admin123
+- **Default Credentials**: ${username || "junior@primata.digital"} / Passw*rd123
 
 ## Management Commands
 

@@ -10,6 +10,7 @@ import { createServer } from "http";
 import { typeDefs } from "./schema";
 import { resolvers } from "./resolvers";
 import { setupWebSocketServer } from "./websocket";
+import { authMiddleware } from "./middleware/auth";
 
 dotenv.config();
 
@@ -25,6 +26,9 @@ async function startServer() {
   app.use(cors());
   app.use(json());
 
+  // Authentication middleware
+  app.use(authMiddleware);
+
   // Create Apollo Server
   const server = new ApolloServer({
     typeDefs,
@@ -39,10 +43,9 @@ async function startServer() {
     "/graphql",
     expressMiddleware(server, {
       context: async ({ req }) => {
-        // Add authentication logic here
         return {
-          user: undefined,
-          isAuthenticated: false,
+          user: (req as any).user,
+          isAuthenticated: (req as any).isAuthenticated || false,
         };
       },
     })
@@ -51,6 +54,32 @@ async function startServer() {
   // Health check endpoint
   app.get("/health", (req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
+  });
+
+  // Authentication endpoints
+  app.post("/auth/login", (req, res) => {
+    const { username, password } = req.body;
+
+    if (username === "junior@primata.digital" && password === "Passw*rd123") {
+      res.json({
+        success: true,
+        token: "dummy-token",
+        user: {
+          id: "1",
+          username: "junior@primata.digital",
+          email: "junior@primata.digital",
+        },
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        error: "Invalid credentials",
+      });
+    }
+  });
+
+  app.post("/auth/logout", (req, res) => {
+    res.json({ success: true });
   });
 
   // Monitoring dashboard endpoint
