@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: ["n8n-manager.primata.digital"],
   },
   build: {
     outDir: "dist",
